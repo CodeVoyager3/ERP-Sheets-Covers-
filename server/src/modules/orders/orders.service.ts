@@ -1,5 +1,20 @@
 import { prisma } from '../../config/prisma';
 
+// fecth all orders
+export const getAllOrders = async () => {
+  return await prisma.order.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      items: {
+        include: { product: true } // Include the actual product details for the frontend
+      },
+      createdBy: {
+        select: { name: true, email: true }
+      }
+    }
+  });
+};
+
 //create an order
 export const createOrder = async (
   customerName: string,

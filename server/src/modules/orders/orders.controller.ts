@@ -27,3 +27,13 @@ export const confirm = async (req: Request, res: Response) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// fetch all orders
+export const getAll = async (req: Request, res: Response) => {
+  try {
+    const orders = await ordersService.getAllOrders();
+    res.status(200).json(orders);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
