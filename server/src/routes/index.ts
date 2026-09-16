@@ -4,7 +4,8 @@ import productRoutes from '../modules/products/products.routes';
 import orderRoutes from '../modules/orders/orders.routes';
 import inventoryRoutes from '../modules/inventory/inventory.routes'
 import financeRoutes from '../modules/finance/finance.routes';
-import activityLogRoutes from '../modules/activityLog/activityLog.routes'
+import activityLogRoutes from '../modules/activityLog/activityLog.routes';
+import userRoutes from '../modules/users/users.routes';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/orders', orderRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/finance', financeRoutes);
 router.use('/activity-logs', activityLogRoutes);
+router.use('/users', userRoutes);
 
 export default router;
