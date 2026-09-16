@@ -24,11 +24,12 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  ordersCreated     Order[]         @relation("OrderCreatedBy")
-  stockMovements    StockLedgerEntry[]
-  ledgerEntries     LedgerEntry[]
-  productionLogs    ProductionStageLog[]
-  activityLogs      ActivityLog[]
+  ordersCreated  Order[]              @relation("OrderCreatedBy")
+  stockMovements StockLedgerEntry[]
+  ledgerEntries  LedgerEntry[]
+  productionLogs ProductionStageLog[]
+  activityLogs   ActivityLog[]
+  workOrders     WorkOrder[]
 }
 
 // Append-only audit trail — every meaningful action gets one row.
@@ -37,10 +38,10 @@ model ActivityLog {
   id         String   @id @default(uuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  action     String   // e.g. "order_created", "stock_adjusted", "stage_completed"
-  entityType String   // e.g. "Order", "StockLedgerEntry", "ProductionJob"
+  action     String // e.g. "order_created", "stock_adjusted", "stage_completed"
+  entityType String // e.g. "Order", "StockLedgerEntry", "ProductionJob"
   entityId   String
-  details    Json?    // free-form snapshot of what changed
+  details    Json? // free-form snapshot of what changed
   createdAt  DateTime @default(now())
 
   @@index([userId])
@@ -54,15 +55,16 @@ model ActivityLog {
 model Product {
   id        String   @id @default(uuid())
   sku       String   @unique
-  name      String   // e.g. "Car seat cover - Sedan - Grey"
+  name      String // e.g. "Car seat cover - Sedan - Grey"
   price     Decimal  @db.Decimal(10, 2)
   createdAt DateTime @default(now())
 
-  orderItems      OrderItem[]
-  stockMovements  StockLedgerEntry[]
-  bomLines        BomLine[]        @relation("ParentProduct")
-  usedInBom       BomLine[]        @relation("ComponentProduct")
-  productionJobs  ProductionJob[]
+  orderItems     OrderItem[]
+  stockMovements StockLedgerEntry[]
+  bomLines       BomLine[]          @relation("ParentProduct")
+  usedInBom      BomLine[]          @relation("ComponentProduct")
+  productionJobs ProductionJob[]
+  workOrders     WorkOrder[]
 }
 
 // ─────────────────────────────────────────────
@@ -79,18 +81,18 @@ enum OrderStatus {
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  customerName  String
-  status        OrderStatus @default(PENDING)
-  createdById   String
-  createdBy     User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id           String      @id @default(uuid())
+  customerName String
+  status       OrderStatus @default(PENDING)
+  createdById  String
+  createdBy    User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  items             OrderItem[]
-  stockMovements    StockLedgerEntry[]
-  ledgerEntries     LedgerEntry[]
-  productionJobs    ProductionJob[]
+  items          OrderItem[]
+  stockMovements StockLedgerEntry[]
+  ledgerEntries  LedgerEntry[]
+  productionJobs ProductionJob[]
 }
 
 model OrderItem {
@@ -108,27 +110,28 @@ model OrderItem {
 // ─────────────────────────────────────────────
 
 enum StockMovementType {
-  STOCK_IN        // e.g. raw material received
-  STOCK_OUT       // e.g. reserved/consumed for an order
-  ADJUSTMENT      // manual correction
+  STOCK_IN // e.g. raw material received
+  STOCK_OUT // e.g. reserved/consumed for an order
+  ADJUSTMENT // manual correction
   PRODUCTION_YIELD // finished good produced
 }
 
 model StockLedgerEntry {
-  id         String            @id @default(uuid())
-  productId  String
-  product    Product           @relation(fields: [productId], references: [id])
-  type       StockMovementType
-  quantity   Int               // positive or negative depending on type
-  orderId    String?
-  order      Order?            @relation(fields: [orderId], references: [id])
-  userId     String
-  user       User              @relation(fields: [userId], references: [id])
-  note       String?
-  createdAt  DateTime          @default(now())
+  id        String            @id @default(uuid())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id])
+  type      StockMovementType
+  quantity  Int // positive or negative depending on type
+  orderId   String?
+  order     Order?            @relation(fields: [orderId], references: [id])
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  note      String?
+  createdAt DateTime          @default(now())
 
   @@index([productId])
 }
+
 // Current stock for a product = SUM(quantity) WHERE productId = X
 
 // ─────────────────────────────────────────────
@@ -139,7 +142,7 @@ enum LedgerAccount {
   REVENUE
   ACCOUNTS_RECEIVABLE
   CASH
-  COGS       // cost of goods sold
+  COGS // cost of goods sold
   INVENTORY_VALUE
 }
 
@@ -156,6 +159,7 @@ model LedgerEntry {
 
   @@index([orderId])
 }
+
 // Every order confirmation writes at least 2 rows, e.g.:
 //   debit  ACCOUNTS_RECEIVABLE  1000
 //   credit REVENUE              1000
@@ -183,16 +187,16 @@ enum ProductionStage {
 }
 
 model ProductionJob {
-  id         String          @id @default(uuid())
-  orderId    String
-  order      Order           @relation(fields: [orderId], references: [id])
-  productId  String
-  product    Product         @relation(fields: [productId], references: [id])
-  quantity   Int
-  stage      ProductionStage @default(QUEUED)
-  createdAt  DateTime        @default(now())
+  id        String          @id @default(uuid())
+  orderId   String
+  order     Order           @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product         @relation(fields: [productId], references: [id])
+  quantity  Int
+  stage     ProductionStage @default(QUEUED)
+  createdAt DateTime        @default(now())
 
-  stageLogs  ProductionStageLog[]
+  stageLogs ProductionStageLog[]
 }
 
 // Immutable log of every stage transition 
@@ -207,4 +211,18 @@ model ProductionStageLog {
   createdAt       DateTime        @default(now())
 
   @@index([productionJobId])
+}
+
+model WorkOrder {
+  id          String   @id @default(uuid())
+  productId   String
+  quantity    Int
+  status      String   @default("PLANNED") // e.g., PLANNED, COMPLETED
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product   Product @relation(fields: [productId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
 }

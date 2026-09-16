@@ -6,6 +6,7 @@ import inventoryRoutes from '../modules/inventory/inventory.routes'
 import financeRoutes from '../modules/finance/finance.routes';
 import activityLogRoutes from '../modules/activityLog/activityLog.routes';
 import userRoutes from '../modules/users/users.routes';
+import productionRoutes from '../modules/production/production.routes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/inventory', inventoryRoutes);
 router.use('/finance', financeRoutes);
 router.use('/activity-logs', activityLogRoutes);
 router.use('/users', userRoutes);
+router.use('/production', productionRoutes);
 
 export default router;
