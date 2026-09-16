@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Users, Auth & Activity Log (shared across modules)
+// ─────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  STAFF
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  ordersCreated     Order[]         @relation("OrderCreatedBy")
+  stockMovements    StockLedgerEntry[]
+  ledgerEntries     LedgerEntry[]
+  productionLogs    ProductionStageLog[]
+  activityLogs      ActivityLog[]
+}
+
+// Append-only audit trail — every meaningful action gets one row.
+// This is the pattern that lets the owner "track users".
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // e.g. "order_created", "stock_adjusted", "stage_completed"
+  entityType String   // e.g. "Order", "StockLedgerEntry", "ProductionJob"
+  entityId   String
+  details    Json?    // free-form snapshot of what changed
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+}
+
+// ─────────────────────────────────────────────
+// Product catalog
+// ─────────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(uuid())
+  sku       String   @unique
+  name      String   // e.g. "Car seat cover - Sedan - Grey"
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  orderItems      OrderItem[]
+  stockMovements  StockLedgerEntry[]
+  bomLines        BomLine[]        @relation("ParentProduct")
+  usedInBom       BomLine[]        @relation("ComponentProduct")
+  productionJobs  ProductionJob[]
+}
+
+// ─────────────────────────────────────────────
+// Sales & orders — state machine
+// ─────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PRODUCTION
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  customerName  String
+  status        OrderStatus @default(PENDING)
+  createdById   String
+  createdBy     User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items             OrderItem[]
+  stockMovements    StockLedgerEntry[]
+  ledgerEntries     LedgerEntry[]
+  productionJobs    ProductionJob[]
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+}
+
+// ─────────────────────────────────────────────
+// Inventory — ledger pattern (never mutate a quantity column directly)
+// ─────────────────────────────────────────────
+
+enum StockMovementType {
+  STOCK_IN        // e.g. raw material received
+  STOCK_OUT       // e.g. reserved/consumed for an order
+  ADJUSTMENT      // manual correction
+  PRODUCTION_YIELD // finished good produced
+}
+
+model StockLedgerEntry {
+  id         String            @id @default(uuid())
+  productId  String
+  product    Product           @relation(fields: [productId], references: [id])
+  type       StockMovementType
+  quantity   Int               // positive or negative depending on type
+  orderId    String?
+  order      Order?            @relation(fields: [orderId], references: [id])
+  userId     String
+  user       User              @relation(fields: [userId], references: [id])
+  note       String?
+  createdAt  DateTime          @default(now())
+
+  @@index([productId])
+}
+// Current stock for a product = SUM(quantity) WHERE productId = X
+
+// ─────────────────────────────────────────────
+// Finance — simplified double-entry ledger
+// ─────────────────────────────────────────────
+
+enum LedgerAccount {
+  REVENUE
+  ACCOUNTS_RECEIVABLE
+  CASH
+  COGS       // cost of goods sold
+  INVENTORY_VALUE
+}
+
+model LedgerEntry {
+  id        String        @id @default(uuid())
+  orderId   String?
+  order     Order?        @relation(fields: [orderId], references: [id])
+  account   LedgerAccount
+  debit     Decimal       @default(0) @db.Decimal(10, 2)
+  credit    Decimal       @default(0) @db.Decimal(10, 2)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
+
+  @@index([orderId])
+}
+// Every order confirmation writes at least 2 rows, e.g.:
+//   debit  ACCOUNTS_RECEIVABLE  1000
+//   credit REVENUE              1000
+
+// ─────────────────────────────────────────────
+// Production — BOM + stage-gate workflow
+// ─────────────────────────────────────────────
+
+// Bill of materials: which components make up a finished product
+model BomLine {
+  id                 String  @id @default(uuid())
+  parentProductId    String
+  parentProduct      Product @relation("ParentProduct", fields: [parentProductId], references: [id])
+  componentProductId String
+  componentProduct   Product @relation("ComponentProduct", fields: [componentProductId], references: [id])
+  quantityRequired   Int
+}
+
+enum ProductionStage {
+  QUEUED
+  CUTTING
+  STITCHING
+  QUALITY_CHECK
+  COMPLETED
+}
+
+model ProductionJob {
+  id         String          @id @default(uuid())
+  orderId    String
+  order      Order           @relation(fields: [orderId], references: [id])
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id])
+  quantity   Int
+  stage      ProductionStage @default(QUEUED)
+  createdAt  DateTime        @default(now())
+
+  stageLogs  ProductionStageLog[]
+}
+
+// Immutable log of every stage transition 
+model ProductionStageLog {
+  id              String          @id @default(uuid())
+  productionJobId String
+  productionJob   ProductionJob   @relation(fields: [productionJobId], references: [id])
+  stage           ProductionStage
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  note            String?
+  createdAt       DateTime        @default(now())
+
+  @@index([productionJobId])
+}
