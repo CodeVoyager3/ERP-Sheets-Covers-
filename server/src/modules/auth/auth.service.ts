@@ -35,3 +35,14 @@ export const loginUser = async (email: string, password: string) => {
 
     return {token, user: {id: user.id, name: user.name, role: user.role}};
 };
+
+// fetching a user without exposing heir password hash
+
+export const getUserById = async (id: string)=> {
+    const user = await prisma.user.findUnique({
+        where: { id },
+        select: { id: true, name: true, email: true, role: true, isActive:true }
+    });
+    if (!user) throw new Error('User not found');
+    return user;
+};

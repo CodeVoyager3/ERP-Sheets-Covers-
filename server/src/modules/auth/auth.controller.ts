@@ -20,3 +20,14 @@ export const login = async (req: Request, res: Response)=> {
         res.status(401).json({ error: error.message});
     }
 };
+
+export const getMe = async (req: Request, res: Response)=>{
+    try{
+        // the authenticate middleware attaches the decoded token to req.user
+        const userId = (req as any).user.userId;
+        const user = await authService.getUserById(userId);
+        res.status(200).json(user);
+    } catch (error: any){
+        res.status(404).json({ error: error.message});
+    }
+};
