@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStock, stockIn } from './inventory.controller';
+import { getStock, stockIn, getMovements, adjustStock } from './inventory.controller';
 import { authenticate } from '../../middleware/auth.middleware';
 import { requireRole } from '../../middleware/rbac.middleware'
 import { validate } from '../../lib/validate';
@@ -11,5 +11,7 @@ const router = Router();
 router.get('/stock', authenticate, getStock);
 //restocking route
 router.post('/stock-in', authenticate, requireRole('OWNER'), validate(stockInSchema), stockIn);
+router.get('/:productId/movements', authenticate, getMovements);
+router.post('/adjust', authenticate, requireRole('OWNER'), validate(stockInSchema), adjustStock);
 
 export default router;

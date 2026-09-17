@@ -64,3 +64,59 @@ export const completeWorkOrder = async (workOrderId: string, userId: string) => 
     return updated;
   });
 };
+
+export const advanceJobStage = async (jobId: string, userId: string, note?: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const job = await tx.productionJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new Error('Job not found');
+    const stages = ['QUEUED', 'CUTTING', 'STITCHING', 'QUALITY_CHECK', 'COMPLETED'];
+    const currentIndex = stages.indexOf(job.stage);
+    
+    if (currentIndex === -1 || currentIndex === stages.length - 1) {
+      throw new Error('Cannot advance job from current stage');
+    }
+    
+    const nextStage = stages[currentIndex + 1] as any;
+    
+    // 1. Advance the stage
+    const updatedJob = await tx.productionJob.update({
+      where: { id: jobId },
+      data: { stage: nextStage },
+    });
+    
+    // 2. Write the stage log
+    await tx.productionStageLog.create({
+      data: { 
+        productionJobId: jobId, 
+        stage: nextStage, 
+        userId, 
+        note: note ?? null, 
+      },
+    });
+    
+    // 3. If COMPLETED, add to inventory stock
+    if (nextStage === 'COMPLETED') {
+      await tx.stockLedgerEntry.create({
+        data: {
+          productId: job.productId,
+          type: 'PRODUCTION_YIELD', // <-- Correct enum value for manufactured goods
+          quantity: job.quantity,
+          userId,
+          note: `Manufactured via Job ${job.id}`,
+        }
+      });
+    }
+    return updatedJob;
+  });
+};
+
+export const getJobById = async (jobId: string) => {
+  return await prisma.productionJob.findUnique({
+    where: { id: jobId },
+    include: {
+      product: true,
+      stageLogs: { include: { user: { select: { name: true } } } },
+      order: { select: { customerName: true, status: true } },
+    },
+  });
+};

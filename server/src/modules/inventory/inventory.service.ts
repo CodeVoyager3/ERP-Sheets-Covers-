@@ -51,3 +51,40 @@ export const addStockIn = async (
     },
   });
 };
+
+export const getProductMovements = async (productId: string) => {
+  return await prisma.stockLedgerEntry.findMany({
+    where: { productId },
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { name: true, email: true } } }
+  });
+};
+
+export const manualStockAdjustment = async (productId: string, quantity: number, userId: string, note?: string) => {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new Error('Product not found');
+
+  return await prisma.$transaction(async (tx) => {
+    const entry = await tx.stockLedgerEntry.create({
+      data: {
+        productId,
+        type: 'ADJUSTMENT',
+        quantity, // Can be positive or negative
+        userId,
+        note: note || 'Manual stock adjustment by owner',
+      },
+    });
+
+    await tx.activityLog.create({
+      data: {
+        userId,
+        action: 'stock_adjusted',
+        entityType: 'StockLedgerEntry',
+        entityId: entry.id,
+        details: { productId, quantity, note },
+      },
+    });
+
+    return entry;
+  });
+};

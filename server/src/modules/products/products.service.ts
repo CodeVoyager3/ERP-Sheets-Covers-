@@ -16,3 +16,20 @@ export const getAllProducts = async () => {
     orderBy: { createdAt: 'desc' }
   });
 };
+
+export const getProductById = async (id: string) => {
+  return await prisma.product.findUnique({
+    where: { id },
+    include: { bomLines: { include: { componentProduct: true } } }
+  });
+};
+
+export const updateProduct = async (id: string, data: { name?: string; price?: number }) => {
+  return await prisma.product.update({ where: { id }, data });
+};
+
+export const addBomLine = async (parentProductId: string, componentProductId: string, quantityRequired: number) => {
+  return await prisma.bomLine.create({
+    data: { parentProductId, componentProductId, quantityRequired }
+  });
+};

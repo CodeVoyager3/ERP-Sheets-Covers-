@@ -21,3 +21,13 @@ export const updateUser = async (req: Request, res: Response) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const getUserActivity = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const logs = await usersService.getUserActivityLog(id);
+    res.status(200).json(logs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};

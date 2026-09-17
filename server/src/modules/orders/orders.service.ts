@@ -65,12 +65,29 @@ export const confirmOrder = async (orderId: string, userId: string) => {
         data: {
           productId: item.productId,
           type: 'STOCK_OUT',
-          quantity: -item.quantity, // Negative because stock is leaving
+          quantity: -item.quantity,
           orderId: order.id,
           userId: userId,
           note: `Auto-deducted for Order ${order.id}`,
         },
       });
+
+      // Check if product requires manufacturing (has BOM)
+      const productWithBom = await tx.product.findUnique({
+        where: { id: item.productId },
+        include: { bomLines: true }
+      });
+
+      if (productWithBom && productWithBom.bomLines.length > 0) {
+        await tx.productionJob.create({
+          data: {
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            stage: 'QUEUED',
+          }
+        });
+      }
     }
 
     // 3. Double-Entry Finance Ledger
@@ -113,5 +130,84 @@ export const confirmOrder = async (orderId: string, userId: string) => {
     });
 
     return updatedOrder;
+  });
+};
+
+export const dispatchOrder = async (orderId: string, userId: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error('Order not found');
+    
+    // Enforce PRD rules: Must be CONFIRMED or IN_PRODUCTION to dispatch
+    if (order.status !== 'CONFIRMED' && order.status !== 'IN_PRODUCTION') {
+      throw new Error('Order must be CONFIRMED or IN_PRODUCTION to dispatch');
+    }
+
+    const updated = await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'DISPATCHED' },
+    });
+
+    await tx.activityLog.create({
+      data: { userId, action: 'order_dispatched', entityType: 'Order', entityId: order.id },
+    });
+
+    return updated;
+  });
+};
+
+export const deliverOrder = async (orderId: string, userId: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error('Order not found');
+    
+    if (order.status !== 'DISPATCHED') {
+      throw new Error('Order must be DISPATCHED before it can be delivered');
+    }
+
+    const updated = await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'DELIVERED' },
+    });
+
+    await tx.activityLog.create({
+      data: { userId, action: 'order_delivered', entityType: 'Order', entityId: order.id },
+    });
+
+    return updated;
+  });
+};
+
+export const cancelOrder = async (orderId: string, userId: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error('Order not found');
+    
+    if (order.status === 'DISPATCHED' || order.status === 'DELIVERED') {
+      throw new Error('Cannot cancel an order that has already been dispatched or delivered');
+    }
+
+    const updated = await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED' },
+    });
+
+    await tx.activityLog.create({
+      data: { userId, action: 'order_cancelled', entityType: 'Order', entityId: order.id },
+    });
+
+    return updated;
+  });
+};
+
+export const getOrderById = async (orderId: string) => {
+  return await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: true } },
+      stockMovements: true,
+      ledgerEntries: true,
+      createdBy: { select: { name: true, email: true } },
+    },
   });
 };

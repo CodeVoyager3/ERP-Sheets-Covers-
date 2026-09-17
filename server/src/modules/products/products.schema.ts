@@ -7,3 +7,19 @@ export const createProductSchema = z.object({
     price: z.number().positive("Price must be greater than zero"),
   }),
 });
+
+export const productIdSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid product ID format'),
+  }),
+});
+
+export const addBomSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid product ID format'),
+  }),
+  body: z.object({
+    componentId: z.string().uuid('Invalid component product ID format'),
+    quantity: z.number().int().positive('Quantity required must be a positive integer'),
+  }),
+});

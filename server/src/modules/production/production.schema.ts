@@ -12,3 +12,12 @@ export const completeWorkOrderSchema = z.object({
     id: z.string().uuid('Invalid work order ID format'),
   }),
 });
+
+export const advanceJobSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid job ID format'),
+  }),
+  body: z.object({
+    note: z.string().optional(),
+  }),
+});

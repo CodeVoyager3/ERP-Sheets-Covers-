@@ -41,3 +41,10 @@ export const updateUserRoleAndStatus = async (
     },
   });
 };
+
+export const getUserActivityLog = async (userId: string) => {
+  return await prisma.activityLog.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
+};
