@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-xl">
             <HugeiconsIcon icon={PackageIcon} size={22} />
           </div>
-          <span className="text-lg font-semibold">SheetCover ERP</span>
+          <span className="text-lg font-semibold">Sheets & Covers ERP</span>
         </div>
         <div>
           <h1 className="max-w-md text-4xl font-semibold tracking-tight">
@@ -72,7 +72,7 @@ export default function LoginPage() {
           </p>
         </div>
         <p className="text-muted-foreground text-xs">
-          © {new Date().getFullYear()} SheetCover ERP
+          © {new Date().getFullYear()} Sheets & Covers ERP
         </p>
       </div>
 
@@ -113,7 +113,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="owner@sheetcover.com"
+                  placeholder="owner@sheetsandcovers.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { PlusSignIcon } from "@/lib/hugeicons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -79,6 +80,9 @@ export default function OrdersPage() {
 
   // per-order action state
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
+  const [deliveringId, setDeliveringId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -193,6 +197,51 @@ export default function OrdersPage() {
     }
   }
 
+  async function handleDispatch(order: Order) {
+    setDispatchingId(order.id);
+    try {
+      await api(`/orders/${order.id}/dispatch`, { method: "PATCH" });
+      toast.success(`Order for ${order.customerName} dispatched`, {
+        description: "Order marked as dispatched.",
+      });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to dispatch order");
+    } finally {
+      setDispatchingId(null);
+    }
+  }
+
+  async function handleDeliver(order: Order) {
+    setDeliveringId(order.id);
+    try {
+      await api(`/orders/${order.id}/deliver`, { method: "PATCH" });
+      toast.success(`Order for ${order.customerName} delivered`, {
+        description: "Order marked as delivered.",
+      });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to deliver order");
+    } finally {
+      setDeliveringId(null);
+    }
+  }
+
+  async function handleCancel(order: Order) {
+    setCancellingId(order.id);
+    try {
+      await api(`/orders/${order.id}/cancel`, { method: "PATCH" });
+      toast.success(`Order for ${order.customerName} cancelled`, {
+        description: "Order cancelled successfully.",
+      });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to cancel order");
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -200,11 +249,11 @@ export default function OrdersPage() {
         description="Create orders and confirm them — confirmation deducts stock, writes the finance ledger and queues production."
         actions={
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={() => setCreateOpen(true)} className="h-11 shadow-sm">
               <HugeiconsIcon icon={PlusSignIcon} size={16} />
               New order
             </Button>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-2xl border-border/60 bg-background/95 shadow-xl">
               <DialogHeader>
                 <DialogTitle>New order</DialogTitle>
                 <DialogDescription>
@@ -220,6 +269,7 @@ export default function OrdersPage() {
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     required
+                    className="border-border/60 h-11"
                   />
                 </div>
 
@@ -236,7 +286,7 @@ export default function OrdersPage() {
                           value={item.productId || undefined}
                           onValueChange={(v) => selectProduct(index, v)}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full h-10 border-border/60">
                             <SelectValue placeholder="Select product" />
                           </SelectTrigger>
                           <SelectContent>
@@ -262,6 +312,7 @@ export default function OrdersPage() {
                               )
                             )
                           }
+                          className="h-10 border-border/60"
                         />
                       </div>
                       <div className="space-y-1">
@@ -278,6 +329,7 @@ export default function OrdersPage() {
                               )
                             )
                           }
+                          className="h-10 border-border/60"
                         />
                       </div>
                       {items.length > 1 ? (
@@ -317,10 +369,10 @@ export default function OrdersPage() {
                 </div>
 
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="border-border/60 h-11">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={submitting}>
+                  <Button type="submit" disabled={submitting} className="h-11">
                     {submitting ? "Creating…" : "Create order"}
                   </Button>
                 </DialogFooter>
@@ -330,11 +382,11 @@ export default function OrdersPage() {
         }
       />
 
-      <Card>
+      <Card className="border-border/60 bg-background/95 shadow-sm">
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 h-10 border-border/60">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -363,54 +415,98 @@ export default function OrdersPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Placed</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="border-border/60">
+                  <TableHead className="h-12 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Customer</TableHead>
+                  <TableHead className="h-12 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Items</TableHead>
+                  <TableHead className="h-12 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Total</TableHead>
+                  <TableHead className="h-12 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-12 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Placed</TableHead>
+                  <TableHead className="h-12 text-right text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div className="font-medium">{order.customerName}</div>
-                      <div className="text-muted-foreground text-xs">
-                        by {order.createdBy?.name ?? "unknown"}
+                  <TableRow key={order.id} className="transition-colors hover:bg-muted/10">
+                    <TableCell className="py-3.5">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="font-medium text-foreground hover:text-primary transition-colors hover:underline"
+                      >
+                        {order.customerName}
+                      </Link>
+                      <div className="text-muted-foreground text-xs font-mono">
+                        #{order.id.slice(0, 8)} · by {order.createdBy?.name ?? "unknown"}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm py-3.5">
                       {order.items.length} item{order.items.length === 1 ? "" : "s"}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium py-3.5">
                       {formatCurrency(orderTotal(order))}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-3.5">
                       <OrderStatusBadge status={order.status} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm py-3.5">
                       {formatDateTime(order.createdAt)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right py-3.5">
                       <div className="flex items-center justify-end gap-2">
                         {order.status === "PENDING" ? (
                           <Button
                             size="sm"
                             disabled={confirmingId === order.id}
                             onClick={() => handleConfirm(order)}
+                            className="h-9"
                           >
                             {confirmingId === order.id ? "Confirming…" : "Confirm"}
                           </Button>
                         ) : null}
+                        {order.status === "CONFIRMED" || order.status === "IN_PRODUCTION" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={dispatchingId === order.id}
+                            onClick={() => handleDispatch(order)}
+                            className="h-9 border-border/60"
+                          >
+                            {dispatchingId === order.id ? "Dispatching…" : "Dispatch"}
+                          </Button>
+                        ) : null}
+                        {order.status === "DISPATCHED" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={deliveringId === order.id}
+                            onClick={() => handleDeliver(order)}
+                            className="h-9 border-border/60"
+                          >
+                            {deliveringId === order.id ? "Delivering…" : "Deliver"}
+                          </Button>
+                        ) : null}
+                        {(order.status === "PENDING" || order.status === "CONFIRMED" || order.status === "IN_PRODUCTION") ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={cancellingId === order.id}
+                            onClick={() => handleCancel(order)}
+                            className="h-9 text-destructive hover:text-destructive"
+                          >
+                            {cancellingId === order.id ? "Cancelling…" : "Cancel"}
+                          </Button>
+                        ) : null}
+                        <Button size="sm" variant="outline" asChild className="h-9 border-border/60">
+                          <Link href={`/orders/${order.id}`}>
+                            Details
+                          </Link>
+                        </Button>
                         <Sheet>
                           <SheetTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              View
+                            <Button size="sm" variant="ghost" className="h-9">
+                              Quick view
                             </Button>
                           </SheetTrigger>
-                          <SheetContent className="sm:max-w-md">
+                          <SheetContent className="sm:max-w-md border-border/60 bg-background/95">
                             <SheetHeader>
                               <SheetTitle>Order — {order.customerName}</SheetTitle>
                               <SheetDescription>

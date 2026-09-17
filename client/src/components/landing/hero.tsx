@@ -44,7 +44,7 @@ const DEFAULT_MODULES = [
 
 // Adapted from watermelon-ui hero-2 (src/data/contents/blocks/hero/hero-2).
 export function Hero({
-    brand = "SheetCover ERP",
+    brand = "Sheets & Covers ERP",
     navLinks = DEFAULT_NAV,
     headline = (
         <>

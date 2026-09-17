@@ -10,8 +10,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "SheetCover ERP",
-    template: "%s · SheetCover ERP",
+    default: "Sheets & Covers ERP",
+    template: "%s · Sheets & Covers ERP",
   },
   description:
     "ERP & e-commerce platform for a sheet cover manufacturing business — products, orders, inventory, production and finance.",

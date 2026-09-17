@@ -134,3 +134,72 @@ export interface ActivityLogEntry {
     role: Role;
   };
 }
+
+export type ProductionStage =
+  | "QUEUED"
+  | "CUTTING"
+  | "STITCHING"
+  | "QUALITY_CHECK"
+  | "COMPLETED";
+
+export interface ProductionStageLog {
+  id: string;
+  productionJobId: string;
+  stage: ProductionStage;
+  userId: string;
+  note: string | null;
+  createdAt: string;
+  user?: {
+    name: string;
+    email?: string;
+  };
+}
+
+export interface ProductionJob {
+  id: string;
+  orderId: string;
+  productId: string;
+  quantity: number;
+  stage: ProductionStage;
+  createdAt: string;
+  product?: Product;
+  order?: {
+    customerName: string;
+    status: OrderStatus;
+  };
+  stageLogs?: ProductionStageLog[];
+}
+
+export interface BomLine {
+  id: string;
+  parentProductId: string;
+  componentProductId: string;
+  quantityRequired: number;
+  componentProduct?: Product;
+}
+
+export interface ProductWithBom extends Product {
+  bomLines?: BomLine[];
+  currentStock?: number;
+}
+
+export interface FinanceSummary {
+  account: LedgerAccount;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface StockMovementWithUser extends StockLedgerEntry {
+  user?: {
+    name: string;
+    email: string;
+  };
+}
+
+export interface OrderDetail extends Order {
+  stockMovements: StockMovementWithUser[];
+  ledgerEntries: LedgerEntry[];
+  productionJobs?: ProductionJob[];
+}
+

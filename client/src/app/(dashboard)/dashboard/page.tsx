@@ -143,24 +143,32 @@ export default function DashboardPage() {
       value: String(orders.length),
       sub: `${pendingOrders} pending`,
       icon: ShoppingCartIcon,
+      color: "text-sky-600 dark:text-sky-400",
+      bgColor: "bg-sky-600/10 dark:bg-sky-400/10",
     },
     {
       title: "Revenue",
       value: formatCurrency(revenue),
       sub: `${formatCurrency(receivables)} receivable`,
       icon: WalletIcon,
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor: "bg-emerald-600/10 dark:bg-emerald-400/10",
     },
     {
       title: "Products Tracked",
       value: String(stock.length),
       sub: `${lowStock} low on stock`,
       icon: PackageIcon,
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-600/10 dark:bg-amber-400/10",
     },
     {
       title: "Work Orders",
       value: String(workOrders.length),
       sub: `${openWorkOrders} open`,
       icon: FactoryIcon,
+      color: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-600/10 dark:bg-purple-400/10",
     },
   ];
 
@@ -170,12 +178,14 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.title}>
+          <Card key={kpi.title} className="border-border/60 bg-background/95 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-muted-foreground text-sm font-medium">
                 {kpi.title}
               </CardTitle>
-              <HugeiconsIcon icon={kpi.icon} size={20} className="text-muted-foreground" />
+              <div className={`rounded-lg p-2 ${kpi.bgColor}`}>
+                <HugeiconsIcon icon={kpi.icon} size={20} className={kpi.color} />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-semibold">{kpi.value}</div>
@@ -186,7 +196,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="border-border/60 bg-background/95 shadow-sm">
           <CardHeader>
             <CardTitle>Revenue over time</CardTitle>
             <CardDescription>Credited revenue per day (ledger)</CardDescription>
@@ -216,7 +226,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-background/95 shadow-sm">
           <CardHeader>
             <CardTitle>Orders by status</CardTitle>
             <CardDescription>Current pipeline distribution</CardDescription>
@@ -246,7 +256,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="mt-4">
+      <Card className="mt-4 border-border/60 bg-background/95 shadow-sm">
         <CardHeader>
           <CardTitle>Current stock</CardTitle>
           <CardDescription>

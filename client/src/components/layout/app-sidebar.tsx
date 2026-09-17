@@ -53,7 +53,7 @@ export function AppSidebar() {
                   <HugeiconsIcon icon={PackageIcon} size={18} />
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold">SheetCover ERP</span>
+                  <span className="truncate font-semibold">Sheets & Covers ERP</span>
                   <span className="text-muted-foreground truncate text-xs">
                     Manufacturing Suite
                   </span>
