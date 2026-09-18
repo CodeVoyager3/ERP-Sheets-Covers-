@@ -10,6 +10,11 @@ import productionRoutes from '../modules/production/production.routes';
 
 const router = Router();
 
+// unauthenticated health check for uptime monitors / platform probes
+router.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/orders', orderRoutes);

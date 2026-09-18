@@ -1,0 +1,22 @@
+# Render Blueprint for the Express API.
+# Create the service via Render Dashboard -> New -> Blueprint, or use these
+# values when configuring manually.
+# The frontend (client/) deploys separately on Vercel with NEXT_PUBLIC_API_URL set.
+services:
+  - type: web
+    name: ecommerce-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci && npx prisma generate
+    preDeployCommand: npx prisma db push --skip-generate
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false      # paste the direct postgresql:// URL from Prisma Postgres (sslmode=require)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false      # your Vercel frontend URL(s), comma-separated
