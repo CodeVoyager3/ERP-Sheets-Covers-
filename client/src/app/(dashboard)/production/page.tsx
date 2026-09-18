@@ -9,7 +9,6 @@ import {
   FactoryIcon,
   LayersIcon,
   ArrowRightIcon,
-  SearchIcon,
 } from "@/lib/hugeicons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,6 @@ import type {
   WorkOrder,
   ProductionJob,
   ProductionStage,
-  ActivityLogEntry,
 } from "@/types";
 
 const STAGE_FILTERS: ("ALL" | ProductionStage)[] = [
@@ -93,11 +91,6 @@ export default function ProductionPage() {
   const [advanceNote, setAdvanceNote] = useState("");
   const [isAdvancing, setIsAdvancing] = useState(false);
 
-  // Manual Job Lookup dialog state
-  const [lookupOpen, setLookupOpen] = useState(false);
-  const [lookupJobId, setLookupJobId] = useState("");
-  const [lookupSearching, setLookupSearching] = useState(false);
-
   const load = useCallback(async () => {
     try {
       const [wOrders, prods] = await Promise.all([
@@ -116,37 +109,10 @@ export default function ProductionPage() {
   const loadJobs = useCallback(async () => {
     setJobsLoading(true);
     try {
-      // Find discovered production jobs through activity logs
-      const logs = await api<ActivityLogEntry[]>("/activity-logs").catch(() => [] as ActivityLogEntry[]);
-      const jobIds = Array.from(
-        new Set(
-          logs
-            .filter((l) => l.entityType === "ProductionJob" || l.entityType === "ProductionStageLog")
-            .map((l) => l.entityId)
-        )
-      );
-
-      // Also check stored job IDs from localStorage
-      if (typeof window !== "undefined") {
-        const stored = JSON.parse(window.localStorage.getItem("tracked_production_job_ids") || "[]");
-        if (Array.isArray(stored)) {
-          stored.forEach((id) => {
-            if (!jobIds.includes(id)) jobIds.push(id);
-          });
-        }
-      }
-
-      // Fetch each job's details
-      const fetchedJobs = await Promise.all(
-        jobIds.map((id) =>
-          api<ProductionJob>(`/production/jobs/${id}`).catch(() => null)
-        )
-      );
-
-      const validJobs = fetchedJobs.filter((j): j is ProductionJob => j !== null);
-      setProductionJobs(validJobs);
-    } catch {
-      // Silently fail if activity log is restricted or empty
+      const jobs = await api<ProductionJob[]>("/production/jobs");
+      setProductionJobs(jobs);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load production jobs");
     } finally {
       setJobsLoading(false);
     }
@@ -218,30 +184,6 @@ export default function ProductionPage() {
     }
   }
 
-  async function handleLookupJob(e: React.FormEvent) {
-    e.preventDefault();
-    if (!lookupJobId.trim()) return;
-    setLookupSearching(true);
-    try {
-      const job = await api<ProductionJob>(`/production/jobs/${lookupJobId.trim()}`);
-      if (typeof window !== "undefined") {
-        const stored = JSON.parse(window.localStorage.getItem("tracked_production_job_ids") || "[]");
-        if (!stored.includes(job.id)) {
-          stored.push(job.id);
-          window.localStorage.setItem("tracked_production_job_ids", JSON.stringify(stored));
-        }
-      }
-      setProductionJobs((prev) => (prev.some((p) => p.id === job.id) ? prev : [job, ...prev]));
-      toast.success(`Loaded Job for ${job.product?.name ?? "Product"}`);
-      setLookupOpen(false);
-      setLookupJobId("");
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Production job not found");
-    } finally {
-      setLookupSearching(false);
-    }
-  }
-
   const filteredJobs = useMemo(
     () =>
       stageFilter === "ALL"
@@ -259,49 +201,6 @@ export default function ProductionPage() {
         description="Stage-gate manufacturing runs with immutable Product Passports and planned work orders."
         actions={
           <div className="flex items-center gap-2">
-            <Dialog open={lookupOpen} onOpenChange={setLookupOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="h-11 border-border/60">
-                  <HugeiconsIcon icon={SearchIcon} size={16} />
-                  Find Job by ID
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md border-border/60 bg-background/95 shadow-xl">
-                <DialogHeader>
-                  <DialogTitle>Find Production Job</DialogTitle>
-                  <DialogDescription>
-                    Enter a Production Job UUID to load its Product Passport and track stage advancement.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleLookupJob} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="lookup-id">Job ID (UUID)</Label>
-                    <Input
-                      id="lookup-id"
-                      placeholder="e.g. 8fa16008-8dfc-457f-b67e-2cf847d02ce9"
-                      value={lookupJobId}
-                      onChange={(e) => setLookupJobId(e.target.value)}
-                      required
-                      className="border-border/60 font-mono text-xs h-11"
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setLookupOpen(false)}
-                      className="border-border/60 h-11"
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={lookupSearching} className="h-11">
-                      {lookupSearching ? "Searching…" : "Load Job"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-
             {canManage && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
@@ -416,14 +315,6 @@ export default function ProductionPage() {
                   <p className="text-muted-foreground mt-1 text-xs">
                     Production jobs are created automatically when an order containing products with a Bill of Materials (BOM) is confirmed.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLookupOpen(true)}
-                    className="mt-4 border-border/60"
-                  >
-                    Track Job by UUID
-                  </Button>
                 </div>
               ) : (
                 <Table>

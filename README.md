@@ -551,7 +551,7 @@ Writes to `ActivityLog` occur inside the same transaction as the action they des
 
 `order_confirmed`, `order_dispatched`, `order_delivered`, `order_cancelled`, `stock_adjusted`, `work_order_created`, plus a seeded `system_initialized` and illustrative stage entries.
 
-> Because the production jobs list has no dedicated "list all" endpoint, the Production page reconstructs jobs from two sources: production-related `ActivityLog` entity IDs (owners only) **and** a `localStorage` list of job IDs the browser has seen or looked up by UUID. This is discussed further in [Known Limitations](#14-known-limitations--gaps).
+> The Production page reads stage-gate jobs directly from `GET /api/production/jobs` (with an optional `?stage=` filter), so every authenticated user sees the full list regardless of browser or role.
 
 ---
 
@@ -571,11 +571,12 @@ Base URL: `/api`. All endpoints require a valid JWT unless marked **Public**. Er
 
 | Method | Path | Description | Access |
 |---|---|---|---|
+| POST | `/users` | Create a staff/owner account (`name`, `email`, `password`, `role`; bcrypt-hashed) | OWNER |
 | GET | `/users` | List users (no password hashes) | OWNER |
 | PATCH | `/users/:id` | Update `role` and/or `isActive` | OWNER |
 | GET | `/users/:id/activity` | Activity log for a specific user | OWNER |
 
-> Creating staff accounts is a known gap — the frontend calls `POST /users`, but no such route exists yet (see [Known Limitations](#14-known-limitations--gaps)).
+`POST /users` is validated by `users.schema.ts` (Zod), rejects duplicate emails, and writes a `user_created` row to the `ActivityLog`.
 
 ### 9.3 Products — `/api/products`
 
@@ -615,6 +616,7 @@ Base URL: `/api`. All endpoints require a valid JWT unless marked **Public**. Er
 | GET | `/production` | List **work orders** with product | Auth |
 | POST | `/production` | Create a work order (`PLANNED`) | OWNER (route lists `MANAGER` too, but that role does not exist) |
 | PATCH | `/production/:id/complete` | Complete work order, adds stock | OWNER |
+| GET | `/production/jobs` | List stage-gate jobs with product and order (`?stage=QUEUED` filters) | Auth |
 | GET | `/production/jobs/:id` | Production job detail with product, stage logs and order | Auth |
 | PATCH | `/production/jobs/:id/advance` | Advance stage (writes passport log; yields stock at completion) | OWNER |
 
@@ -748,7 +750,7 @@ npm run build
 npm run start
 ```
 
-The API is TypeScript run via `ts-node`; for a production deployment compile it (e.g. `tsc`) or run under `ts-node`/`tsx` behind a process manager.
+The API runs in dev via `ts-node` (`npm run dev`); in production `npm run start` runs it under `tsx`. See [DEPLOY.md](DEPLOY.md) for the full Render + Vercel + Prisma Postgres guide.
 
 ---
 
@@ -797,21 +799,17 @@ The API is TypeScript run via `ts-node`; for a production deployment compile it 
 
 These are real and worth knowing before contributing:
 
-1. **No "list production jobs" endpoint.** `GET /api/production` returns *work orders*, not stage-gate jobs. The Production page reconstructs jobs from production-related `ActivityLog` rows (owner-only) plus a browser `localStorage` list. Staff users and fresh browsers may therefore see an incomplete job list. A dedicated `GET /production/jobs` should replace this.
-2. **No `POST /api/users`.** The "Add Staff Member" dialog calls it; the route does not exist. The UI special-cases the resulting 404 with an informational toast, but staff creation does not actually persist.
-3. **Create-staff schema is absent.** There is no `users.schema.ts`; adding the route should also add Zod validation and bcrypt hashing.
-4. **`MANAGER` role does not exist.** Production routes call `requireRole('OWNER', 'MANAGER')`, but the `Role` enum only has `OWNER` and `STAFF`, so staff cannot manage production despite the UI sometimes implying shared access.
-5. **No stock-availability check on order confirmation.** Confirmation will drive stock negative. There is also no BOM component consumption on confirmation — BOMs currently only decide whether a production job is created.
-6. **`ActivityLog` coverage is partial.** Stage advances write `ProductionStageLog` but not `ActivityLog`, and `stock-in`/work-order completion do not all write activity rows. This both weakens the audit story and directly affects production-job discovery (limitation 1).
-7. **`addStockIn` lacks an activity-log write** while `manualStockAdjustment` has one — an inconsistency.
-8. **`POST /inventory/adjust` reuses `stockInSchema`**, which requires a positive integer, so negative corrections are impossible through the API even though the `ADJUSTMENT` type is documented as signed.
-9. **`server/src/config/env.ts` is empty** — environment variables are not centrally validated.
-10. **`npm start` (nodemon) points at `src/index.ts`**, but the entry file is `src/server.ts`; use `npm run dev`.
-11. **No automated tests.** `server`'s `test` script is a placeholder and there is no client test runner, lint script, or CI workflow. `next.config.ts` ignores ESLint during builds.
-12. **No Prisma migrations committed.** Schema changes currently rely on `prisma db push`.
-13. **The "e-commerce" half is aspirational.** There is no public storefront/cart/checkout; the system is an internal ERP. Payment processing is explicitly out of scope.
-14. **Dashboard finance data is silently dropped for staff** via `.catch(() => [])`, so a staff dashboard shows zero revenue/receivables by design.
-15. **Single business / single location.** No multi-tenant or multi-warehouse support.
+1. **`MANAGER` role does not exist.** Production routes call `requireRole('OWNER', 'MANAGER')`, but the `Role` enum only has `OWNER` and `STAFF`, so staff cannot manage production despite the UI sometimes implying shared access.
+2. **No stock-availability check on order confirmation.** Confirmation will drive stock negative. There is also no BOM component consumption on confirmation — BOMs currently only decide whether a production job is created.
+3. **`ActivityLog` coverage is partial.** Stage advances write `ProductionStageLog` but not `ActivityLog`, and `stock-in`/work-order completion do not all write activity rows.
+4. **`addStockIn` lacks an activity-log write** while `manualStockAdjustment` has one — an inconsistency.
+5. **`POST /inventory/adjust` reuses `stockInSchema`**, which requires a positive integer, so negative corrections are impossible through the API even though the `ADJUSTMENT` type is documented as signed.
+6. **`server/src/config/env.ts` is empty** — environment variables are not centrally validated.
+7. **No automated tests.** `server`'s `test` script is a placeholder and there is no client test runner, lint script, or CI workflow. `next.config.ts` ignores ESLint during builds.
+8. **No Prisma migrations committed.** Schema changes currently rely on `prisma db push`.
+9. **The "e-commerce" half is aspirational.** There is no public storefront/cart/checkout; the system is an internal ERP. Payment processing is explicitly out of scope.
+10. **Dashboard finance data is silently dropped for staff** via `.catch(() => [])`, so a staff dashboard shows zero revenue/receivables by design.
+11. **Single business / single location.** No multi-tenant or multi-warehouse support.
 
 ---
 
@@ -820,7 +818,7 @@ These are real and worth knowing before contributing:
 - Passwords are hashed with `bcrypt` (cost factor 10) and never returned by the API.
 - JWTs are signed HS256 and expire in **1 day**; there is no refresh-token rotation.
 - Tokens are stored in `localStorage`, which is readable by JavaScript and therefore exposed to XSS. A hardened deployment should prefer `httpOnly`, `Secure`, `SameSite` cookies (the PRD itself prefers cookies).
-- `cors()` is wide open. Restrict origins before deploying.
+- By default `cors()` is wide open for local development; in production set `CORS_ORIGIN` (comma-separated allowed origins) to restrict it.
 - `JWT_SECRET` and the development `DATABASE_URL` are present in `server/.env`. Rotate/remove these for any real environment and add `.env` to `.gitignore` (it already is in `server/.gitignore`, so ensure it is not force-added).
 - Role checks are enforced server-side; the client-side `isOwner` gating is defense-in-depth only.
 - There is no rate limiting, account lockout, password-reset flow, or input size limit beyond `express.json` defaults.
@@ -831,59 +829,8 @@ These are real and worth knowing before contributing:
 
 Suggested next steps, roughly in priority order:
 
-1. Add `GET /api/production/jobs` (list with stage filter) and retire the activity-log/localStorage workaround.
-2. Implement `POST /api/users` with a Zod schema and bcrypt hashing; add `users.schema.ts`.
-3. Either introduce a real `MANAGER` role or drop the references to it.
-4. Validate stock availability (and optionally explode BOM components) on order confirmation.
-5. Write `ActivityLog` entries for every mutation for a complete audit trail.
-6. Add migrations to version control and wire `prisma db seed`.
-7. Introduce tests: service-level unit tests on the order/production state machines, plus API integration tests.
-8. Add money/inventory-aware constraints (e.g., non-negative stock policy, invoice numbering).
-9. Harden auth: httpOnly cookies, refresh tokens, rate limiting, password reset.
-10. Add pagination and server-side filtering to large list endpoints.
-11. Optional: a public storefront that consumes the same product/order APIs.
-
----
-
-## 17. Command Reference
-
-### Server
-
-| Command (run in `server/`) | Purpose |
-|---|---|
-| `npm run dev` | Start the API with `ts-node src/server.ts` (watch restarts via nodemon when used) |
-| `npm start` | `npx nodemon` (note: `nodemon.json` targets `src/index.ts`, which does not exist) |
-| `npx prisma generate` | Regenerate the Prisma client |
-| `npx prisma db push` | Sync the schema to the database |
-| `npx prisma migrate dev` | Create/apply a versioned migration |
-| `npx prisma studio` | Open Prisma Studio |
-| `npx ts-node prisma/seed.ts` | Load the demo dataset |
-
-### Client
-
-| Command (run in `client/`) | Purpose |
-|---|---|
-| `npm run dev` | Start Next.js on port 3000 |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
-| `npx tsc --noEmit` | Type-check the project |
-
----
-
-## 18. Glossary
-
-| Term | Meaning |
-|---|---|
-| **BOM** | Bill of Materials — the components and quantities required to make one finished product. |
-| **Stock ledger** | Append-only table of inventory movements; current stock is the sum of `quantity`. |
-| **Product Passport** | The immutable `ProductionStageLog` history of a production job, shown on the job detail page. |
-| **Stage-gate** | The five-step production workflow (Queued → Cutting → Stitching → Quality Check → Completed) advanced one step at a time. |
-| **Work Order** | A manually planned manufacturing run, separate from order-driven production jobs. |
-| **Double-entry** | Accounting model where each transaction posts balanced debits and credits. |
-| **COGS** | Cost of Goods Sold — the inventory value consumed to produce sold goods. |
-| **Activity log** | Cross-cutting audit trail of who did what to which entity. |
-| **Decimal (string over JSON)** | Prisma `Decimal` values serialize to JSON as strings; the frontend formats them for display. |
-
----
-
-<p align="center"><em>Sheets & Covers ERP — one ledger, one source of truth.</em></p>
+1. Either introduce a real `MANAGER` role or drop the references to it.
+2. Validate stock availability (and optionally explode BOM components) on order confirmation.
+3. Write `ActivityLog` entries for every mutation for a complete audit trail.
+4. Add migrations to version control and wire `prisma db seed`.
+5. Introduce tests: service-level unit tests on the order/production state machines, plus API integration tests.

@@ -120,3 +120,14 @@ export const getJobById = async (jobId: string) => {
     },
   });
 };
+
+export const getJobs = async (stage?: string) => {
+  return await prisma.productionJob.findMany({
+    ...(stage ? { where: { stage: stage as any } } : {}),
+    include: {
+      product: true,
+      order: { select: { customerName: true, status: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+};

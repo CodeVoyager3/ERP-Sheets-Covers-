@@ -127,15 +127,7 @@ export default function UsersPage() {
       setCreateForm({ name: "", email: "", role: "STAFF", password: "" });
       await load();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        toast.info("Staff account registered", {
-          description: `User ${createForm.email} configured as ${createForm.role}.`,
-        });
-        setCreateOpen(false);
-        setCreateForm({ name: "", email: "", role: "STAFF", password: "" });
-      } else {
-        toast.error(err instanceof Error ? err.message : "Failed to create staff account");
-      }
+      toast.error(err instanceof ApiError ? err.message : "Failed to create staff account");
     } finally {
       setCreating(false);
     }

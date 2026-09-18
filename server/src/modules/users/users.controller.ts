@@ -31,3 +31,15 @@ export const getUserActivity = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const creatorId = (req as any).user.userId;
+    const { name, email, password, role } = req.body;
+
+    const user = await usersService.createUser(creatorId, { name, email, password, role });
+    res.status(201).json({ message: 'User created successfully', user });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};

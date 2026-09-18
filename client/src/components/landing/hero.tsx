@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, type Variants } from "motion/react";
-import { ArrowRight, ArrowDown, Play, ChevronDown } from "lucide-react";
+import { ArrowRight, Play, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -279,17 +279,6 @@ export function Hero({
                             {mod.label}
                         </a>
                     ))}
-                </div>
-
-                {/* Scroll Indicator */}
-                <div className="flex items-center gap-2 text-slate-500 text-sm md:text-base cursor-pointer group w-full md:w-auto justify-start md:justify-end">
-                    <span>Scroll to Discover</span>
-                    <motion.span
-                        animate={{ y: [0, 4, 0] }}
-                        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                    >
-                        <ArrowDown className="w-4 h-4 transition-transform group-hover:translate-y-1" strokeWidth={1.5} />
-                    </motion.span>
                 </div>
             </motion.div>
         </section>

@@ -57,3 +57,13 @@ export const getJobDetail = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getJobs = async (req: Request, res: Response) => {
+  try {
+    const stage = req.query.stage as string | undefined;
+    const jobs = await productionService.getJobs(stage);
+    res.status(200).json(jobs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
