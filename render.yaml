@@ -8,8 +8,10 @@ services:
     runtime: node
     rootDir: server
     buildCommand: npm ci && npx prisma generate
-    preDeployCommand: npx prisma db push --skip-generate
-    startCommand: npm run start
+    # Apply the schema at every boot so the database can never be missing tables.
+    # (This also covers Render's free tier, which does not run pre-deploy commands;
+    # note Prisma 7's `db push` has no --skip-generate flag.)
+    startCommand: npx prisma db push && npm run start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
